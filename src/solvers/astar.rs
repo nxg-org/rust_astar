@@ -68,6 +68,8 @@ where
     }
 
     fn get_neighbors(&self, org: Block) -> Vec<(f32, Block)> {
+        const SQRT_2: f32 = 1.41414;
+
         let mut moves = Vec::with_capacity(CARDINAL_POSITIONS.len() + DIAGONAL_POSITIONS.len());
         for dir in CARDINAL_POSITIONS.iter() {
             if let Some(block) = self.grid.get_pos_info_ref(org.x + dir.0, org.y + dir.1) {
@@ -77,7 +79,7 @@ where
 
         for dir in DIAGONAL_POSITIONS.iter() {
             if let Some(block) = self.grid.get_pos_info_ref(org.x + dir.0, org.y + dir.1) {
-                moves.push((if block.passable { f32::sqrt(2f32) } else { f32::MAX }, *block))
+                moves.push((if block.passable { SQRT_2 } else { f32::MAX }, *block))
             }
         }
         moves

@@ -2,14 +2,14 @@ use std::hash::Hash;
 
 #[derive(Debug)]
 pub struct Grid {
-    width: usize,
-    height: usize,
+    half_width: usize,
+    half_height: usize,
     pub inner: Vec<Block>,
 }
 
 impl Grid {
     pub fn get_bounds(&self) -> Bounds {
-        Bounds::new(self.width / 2, self.height / 2)
+        Bounds::new(self.half_width, self.half_height)
     }
 
     // pub fn get_pos_info_mut(&mut self, x: i32, y: i32) -> Option<&mut PosInfo> {
@@ -53,16 +53,16 @@ impl Grid {
         }
 
         Self {
-            width: half_width * 2 + 1,
-            height: half_height * 2 + 1,
+            half_width,
+            half_height,
             inner: final_pos_infos,
         }
     }
 
-    pub fn with_full_pos_infos(pos_infos: &[Block], width: usize, height: usize) -> Self {
+    pub fn with_full_pos_infos(pos_infos: &[Block], half_width: usize, half_height: usize) -> Self {
         Self {
-            width,
-            height,
+            half_width,
+            half_height,
             inner: pos_infos.to_vec(),
         }
     }
@@ -74,7 +74,7 @@ pub struct Bounds {
     height: usize,
     half_width: usize,
     half_height: usize,
-    max: usize,
+    // max: usize,
 }
 
 /// format is: (width, height, actual index)
@@ -93,7 +93,7 @@ impl Bounds {
             height: half_height * 2 + 1,
             half_width,
             half_height,
-            max: (half_width * 2 + 1) * (half_height * 2 + 1),
+            // max: (half_width * 2 + 1) * (half_height * 2 + 1),
         }
     }
 

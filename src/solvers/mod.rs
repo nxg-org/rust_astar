@@ -19,46 +19,15 @@ pub mod debug {
         let far_y = 3;
         // we want to generate the nodes, ig
         // already did dw, look at this
-        let raw_grid: Vec<Block> = [
-            (-2, -3, 0),
-            (-1, -3, 0),
-            (0, -3, 1),
-            (1, -3, 0),
-            (2, -3, 0),
-            (-2, -2, 0),
-            (-1, -2, 0),
-            (0, -2, 1),
-            (1, -2, 0),
-            (2, -2, 0),
-            (-2, -1, 0),
-            (-1, -1, 0),
-            (0, -1, 1),
-            (1, -1, 0),
-            (2, -1, 0),
-            (-2, 0, 0),
-            (-1, 0, 0),
-            (0, 0, 0),
-            (1, 0, 0),
-            (2, 0, 0),
-            (-2, 1, 0),
-            (-1, 1, 0),
-            (0, 1, 1),
-            (1, 1, 0),
-            (2, 1, 0),
-            (-2, 2, 0),
-            (-1, 2, 0),
-            (0, 2, 1),
-            (1, 2, 0),
-            (2, 2, 0),
-            (-2, 3, 0),
-            (-1, 3, 0),
-            (0, 3, 1),
-            (1, 3, 0),
-            (2, 3, 0),
-        ]
-        .into_iter()
-        .map(|val| val.into())
-        .collect();
+        let raw_grid: Vec<Block> =  [   (-2, -3, 0),  (-1, -3, 0),  (0, -3, 1),  (1, -3, 0),  (2, -3, 0),
+                                        (-2, -2, 0),  (-1, -2, 0),  (0, -2, 1),  (1, -2, 0),  (2, -2, 0),
+                                        (-2, -1, 0),  (-1, -1, 0),  (0, -1, 1),  (1, -1, 0),  (2, -1, 0),
+                                        (-2, 0, 0),   (-1, 0, 0),   (0, 0, 0),   (1, 0, 0),   (2, 0, 0),
+                                        (-2, 1, 0),   (-1, 1, 0),   (0, 1, 1),   (1, 1, 0),   (2, 1, 0),
+                                        (-2, 2, 0),   (-1, 2, 0),   (0, 2, 1),   (1, 2, 0),   (2, 2, 0),
+                                        (-2, 3, 0),   (-1, 3, 0),   (0, 3, 1),   (1, 3, 0),   (2, 3, 0)
+                                    ].into_iter().map(|val| val.into()).collect();
+
 
         // with this, you can specified X specific nodes while all others are set to default, MAX cost.
         let grid = Grid::with_unchecked_pos_infos(&raw_grid, far_x, far_y);
@@ -70,8 +39,8 @@ pub mod debug {
             start_node,
             goal,
             |first, second| {
-                ((first.data.x - second.data.x).pow(2) + (first.data.x - second.data.y).pow(2))
-                    as f32
+                (((second.data.x - first.data.x).pow(2) + (second.data.y - first.data.y).pow(2))
+                    as f32).sqrt()
             },
             1000.0,
             10 * 1000,
@@ -81,15 +50,6 @@ pub mod debug {
         let path = astar.calculate();
 
         println!("{:?}", path);
-
-        match path {
-
-            PathResult::Complete(raw) => {
-                
-            }
-            _ => {}
-        }
-
 
     }
 }

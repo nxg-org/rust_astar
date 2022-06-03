@@ -17,6 +17,6 @@ impl <'a> GenericGoal for GoalNode {
 
     fn heuristic(&self, other:impl Into<Block>) -> f32 {
         let other: Block = other.into();
-        (((other.x - self.0.data.x).pow(2) + (other.x - self.0.data.y).pow(2)) as f32).sqrt()
+        (((other.x - self.0.get_x()).pow(2) + (other.y - self.0.get_y()).pow(2)) as f32).sqrt()
     }
 }
