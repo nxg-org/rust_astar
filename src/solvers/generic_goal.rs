@@ -8,7 +8,7 @@ pub trait GenericGoal {
 
 
 
-pub struct GoalNode(Node);
+pub struct GoalNode(pub Node);
 
 impl <'a> GenericGoal for GoalNode {
     fn goal_reached(&self, other: impl Into<Block>) -> bool {
@@ -17,6 +17,6 @@ impl <'a> GenericGoal for GoalNode {
 
     fn heuristic(&self, other:impl Into<Block>) -> f32 {
         let other: Block = other.into();
-        ((other.x - self.0.data.x).pow(2) + (other.x - self.0.data.y).pow(2)) as f32 
+        (((other.x - self.0.data.x).pow(2) + (other.x - self.0.data.y).pow(2)) as f32).sqrt()
     }
 }

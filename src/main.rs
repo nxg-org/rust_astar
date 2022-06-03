@@ -2,6 +2,8 @@
 
 mod solvers;
 mod path_node;
+mod movements;
+mod constants;
 mod world_info;
 use world_info::{Block, Grid, Bounds};
 
@@ -24,6 +26,7 @@ fn main() {
 
     // with this, you can specified X specific nodes while all others are set to default, MAX cost.
     let grid = Grid::with_unchecked_pos_infos(&raw_grid, far_x, far_y);
+
 
     let bounds = Bounds::new(far_x, far_y);
 

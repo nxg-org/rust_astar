@@ -1,5 +1,5 @@
 // Astar Relevant.
-pub const CARDINAL_POSITIONS: [(i32, i32); 4] = [(1, 0), (-1, 0), (1, 0), (-1, 0)];
+pub const CARDINAL_POSITIONS: [(i32, i32); 4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
 pub const DIAGONAL_POSITIONS: [(i32, i32); 4] = [(1, 1), (-1, -1), (1, -1), (-1, 1)];
 pub const ALL_OFFSETS: [(i32, i32); 8] = [
     (1, 0),

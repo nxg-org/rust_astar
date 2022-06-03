@@ -32,11 +32,11 @@ impl<'a> PartialOrd for Node {
 impl<'a> Ord for Node {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
         if self.f > other.f {
-            Ordering::Greater
+            Ordering::Less
         } else if self.f == other.f {
             Ordering::Equal
         } else {
-            Ordering::Less
+            Ordering::Greater
         }
     }
 }

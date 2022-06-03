@@ -2,9 +2,13 @@ use std::rc::Rc;
 
 use crate::path_node::Node;
 
+
+type Test = Vec<(i32, i32)>;
+
+#[derive(Debug)]
 pub enum PathResult {
-    Partial(Vec<Rc<Node>>),
-    Complete(Vec<Rc<Node>>),
-    Timeout(Vec<Rc<Node>>),
-    NoPathResolution(Vec<Rc<Node>>)
+    Partial(Test),
+    Complete(Test),
+    Timeout(Test),
+    NoPathResolution(Test)
 }

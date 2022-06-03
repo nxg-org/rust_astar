@@ -178,7 +178,7 @@ impl From<(i32, i32, i32)> for Block {
         Self {
             x: val.0,
             y: val.1,
-            passable: val.2 != 0,
+            passable: val.2 == 0,
             terrain_speed: val.2 as f32,
         }
     }

@@ -1,9 +1,17 @@
-use std::{collections::{
-    hash_map::Entry::{Occupied, Vacant},
-    BinaryHeap, HashMap, HashSet,
-}, time::Instant, rc::Rc};
+use std::{
+    collections::{
+        hash_map::Entry::{Occupied, Vacant},
+        BinaryHeap, HashMap, HashSet,
+    },
+    rc::Rc,
+    time::Instant,
+};
 
-use crate::{path_node::Node, world_info::Block};
+use crate::{
+    constants::{CARDINAL_POSITIONS, DIAGONAL_POSITIONS},
+    path_node::Node,
+    world_info::{Block, Grid},
+};
 
 use super::{
     generic_goal::{GenericGoal, GoalNode},
@@ -11,7 +19,7 @@ use super::{
     path_types::PathResult,
 };
 
-pub struct AStarSolver<H, Goal>  {
+pub struct AStarSolver<H, Goal> {
     pub goal: Goal,
     pub open_heap: BinaryHeap<Node>,
     pub open_block_map: HashMap<Block, Node>,
@@ -20,10 +28,28 @@ pub struct AStarSolver<H, Goal>  {
     pub heuristic: H,
     pub max_cost: f32,
     pub timeout: u128,
+
+    // this is bad.
+    pub grid: Grid,
 }
 
-impl< H, Goal> AStarSolver< H, Goal> where Goal: GenericGoal {
-    fn new(start: Node, goal: Goal, heuristic: H, max_cost: f32, timeout: u128) -> Self {
+/// Laziness.
+/// We're going to implement getting neighbors lazily here in favor of testing.
+/// In reality, this will be **much** more complicated.
+/// Here goes.
+impl<H, Goal> AStarSolver<H, Goal>
+where
+    H: Fn(Node, Node) -> f32,
+    Goal: GenericGoal,
+{
+    pub fn new(
+        start: Node,
+        goal: Goal,
+        heuristic: H,
+        max_cost: f32,
+        timeout: u128,
+        /* this is bad. */ grid: Grid,
+    ) -> Self {
         let mut open_heap = BinaryHeap::new();
         let mut open_block_map = HashMap::new();
         open_heap.push(start.clone());
@@ -37,19 +63,37 @@ impl< H, Goal> AStarSolver< H, Goal> where Goal: GenericGoal {
             heuristic,
             max_cost,
             timeout,
+            grid,
         }
+    }
+
+    fn get_neighbors(&self, org: Block) -> Vec<(f32, Block)> {
+        let mut moves = Vec::with_capacity(CARDINAL_POSITIONS.len() + DIAGONAL_POSITIONS.len());
+        for dir in CARDINAL_POSITIONS.iter() {
+            if let Some(block) = self.grid.get_pos_info_ref(org.x + dir.0, org.y + dir.1) {
+                moves.push((if block.passable { 1f32 } else { f32::MAX }, *block))
+            }
+        }
+
+        for dir in DIAGONAL_POSITIONS.iter() {
+            if let Some(block) = self.grid.get_pos_info_ref(org.x + dir.0, org.y + dir.1) {
+                moves.push((if block.passable { f32::sqrt(2f32) } else { f32::MAX }, *block))
+            }
+        }
+        moves
     }
 }
 
 impl<H, Goal> PathSolver<H> for AStarSolver<H, Goal>
 where
     H: Fn(Node, Node) -> f32,
-    Goal: GenericGoal 
+    Goal: GenericGoal,
 {
     fn calculate(&mut self) -> PathResult {
-
         let start = Instant::now();
+
         while let Some(node) = self.open_heap.pop() {
+         
             if self.goal.goal_reached(&node) {
                 return PathResult::Complete(self.reconstruct_path(Rc::new(node)));
             }
@@ -62,11 +106,8 @@ where
             self.open_block_map.remove(&node.data);
             self.closed_block_set.insert(node.data);
 
-            fn get_neighbors(org: Block) -> Vec<(f32, Block)> {
-                todo!()
-            }
-
-            for (cost, neighbor_block) in get_neighbors(node.data) {
+            // TODO: update this. Move this ASAP. Hate this.
+            for (cost, neighbor_block) in self.get_neighbors(node.data) {
                 if self.closed_block_set.contains(&neighbor_block) {
                     continue;
                 }
@@ -83,15 +124,18 @@ where
                             continue;
                         }
                         let node = entry.get_mut();
-                        node.f = this_g + heuristic;
-                        node.g = this_g;
-                        node.h = heuristic;
+                        node.set_costs(this_g, heuristic);
                         if heuristic < self.best_node.h {
                             self.best_node = node.clone()
                         }
                     }
                     Vacant(entry) => {
-                        let neighbor = entry.insert(Node::with_costs_and_data(neighbor_block, this_g, heuristic, Some(Rc::new(node.clone()))));
+                        let neighbor = entry.insert(Node::with_costs_and_data(
+                            neighbor_block,
+                            this_g,
+                            heuristic,
+                            Some(Rc::new(node.clone())),
+                        ));
                         if heuristic < self.best_node.h {
                             self.best_node = neighbor.clone();
                         }
@@ -101,7 +145,8 @@ where
             }
         }
 
-        return PathResult::NoPathResolution(self.reconstruct_path(Rc::new(self.best_node.clone())));
-
+        return PathResult::NoPathResolution(
+            self.reconstruct_path(Rc::new(self.best_node.clone())),
+        );
     }
 }
