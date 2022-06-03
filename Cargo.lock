@@ -8,6 +8,7 @@ version = "0.1.0"
 dependencies = [
  "pathfinding",
  "pin-project",
+ "refpool",
 ]
 
 [[package]]
@@ -123,6 +124,12 @@ checksum = "a1feb54ed693b93a84e14094943b84b7c4eae204c512b7ccb95ab0c66d278ad1"
 dependencies = [
  "proc-macro2",
 ]
+
+[[package]]
+name = "refpool"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "369e86b80fa7dc8c561dd9613a5bf25c59d2d3073cd66c47fd9e39802f0ecb58"
 
 [[package]]
 name = "rustc-hash"
