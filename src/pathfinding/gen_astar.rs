@@ -57,6 +57,8 @@ impl<F, Pos, G, M> AStar<F, Pos, G, M> {
         if let Some(parent) = end_node.t.parent {
             parent.into_vec(&mut v);
         }
+
+        v.reverse();
         v
     }
 }

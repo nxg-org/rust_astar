@@ -39,16 +39,43 @@ impl Movements<OrderedFloat<f32>, Pos> for Adjacent {
     }
 }
 
+
+struct World;
+
+impl Movements<OrderedFloat<f32>, Pos> for World {
+    fn get_neighbors(&self, pos: Pos) -> Vec<(Pos, OrderedFloat<f32>)> {
+
+        const CARDINAL: [(i32, i32);4] = [(1, 0), (-1, 0), (0, 1), (0, -1)];
+        const DIAGONAL: [(i32, i32);4] = [(1, 1), (-1, 1), (-1, 1), (-1, -1)];
+
+
+        let mut tmp = Vec::with_capacity(8);
+        for dir in CARDINAL.iter() {
+            let res: OrderedFloat<f32> = if pos.1 == 5  && pos.0 == 5  { (f32::MAX).into() } else { (1.0).into() };
+            tmp.push((Pos(pos.0 + dir.0, pos.1 + dir.1), res ));
+        }
+
+        for dir in DIAGONAL.iter() {
+            let res: OrderedFloat<f32> = if pos.1 == 5  && pos.0 == 5 { (f32::MAX).into() } else { (SQRT_2).into() };
+            tmp.push((Pos(pos.0 + dir.0, pos.1 + dir.1), res ));
+        }
+        tmp
+    }
+}
+
+
+
 fn main() {
     use pathfinding::gen_astar::AStar;
 
     const START: Pos = Pos(-10, -10);
     const GOAL: Pos = Pos(10, 10);
     const REFPOOL_SIZE: usize = 2000;
-    let MAX_COST: OrderedFloat<f32> = OrderedFloat::from(f32::MAX);
+    let MAX_COST: OrderedFloat<f32> = OrderedFloat::from(100.0);
     
-    let mut astar = AStar::new(REFPOOL_SIZE, MAX_COST, START, GOAL, Adjacent);
+    let mut astar = AStar::new(REFPOOL_SIZE, MAX_COST, START, GOAL, World);
     let result = astar.compute();
+
     println!("{:?}", result);
 }
 
