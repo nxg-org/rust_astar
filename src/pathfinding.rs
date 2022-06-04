@@ -1,9 +1,8 @@
 // pub mod astari32;
 pub mod astarf32;
-pub mod astarfixed;
 pub mod astar;
 pub mod astarthin;
-pub mod astarheuristiclater;
+pub mod gen_astar;
 
 /// Represents a node in the pathfinding algorithms
 ///
@@ -74,4 +73,34 @@ pub trait Pathfinder {
         goal: impl Goal<Self::F, Self::Pos>,
         movements: impl Movements<Self::F, Self::Pos>,
     ) -> Option<Vec<Self::Pos>>;
+}
+
+
+pub trait PathfinderGen {
+    type F;
+    type Pos;
+    type Movements;
+    type Goal;
+
+    fn new(
+        size: usize,
+        max_cost: Self::F,
+        start: Self::Pos,
+        goal: Self::Goal,
+        movements: Self::Movements,
+    ) -> Self;
+
+    fn compute(&mut self) -> PathResult<Vec<Self::Pos>>;
+
+    fn reset(&mut self);
+
+    // fn reset(&mut self);
+}
+
+#[derive(Debug)]
+pub enum PathResult<T> {
+    Partial(T),
+    Complete(T),
+    Timeout(T),
+    NoPath(T),
 }

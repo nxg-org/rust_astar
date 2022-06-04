@@ -2,7 +2,7 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::{fmt::Debug, hash::Hash};
 
-use super::{Goal, Movements, Node, Pathfinder};
+use super::{Goal, Movements, Node, PathResult, Pathfinder, PathfinderGen};
 
 #[derive(Clone, Debug)]
 pub struct AStarT<F, Pos> {
@@ -35,30 +35,19 @@ where
     }
 }
 
-pub struct AStar<F, Pos> {
-    closed: HashSet<Pos>,
+pub struct AStar<F, Pos, G, M> {
+    start: Pos,
+    goal: G,
+    movements: M,
+    max_cost: F,
+    best_node: Node<F, Pos, AStarT<F, Pos>>,
     heap: BinaryHeap<Node<F, Pos, AStarT<F, Pos>>>,
     open: HashMap<Pos, (F, AStarT<F, Pos>)>,
+    closed: HashSet<Pos>,
     refpool: refpool::Pool<NodeLeaf<Pos>>,
 }
 
-impl<F, Pos> AStar<F, Pos> {
-    pub fn with_refpool_size(size: usize) -> Self
-    where
-        F: Ord,
-    {
-        Self {
-            closed: Default::default(),
-            heap: Default::default(),
-            open: Default::default(),
-            refpool: refpool::Pool::new(size),
-        }
-    }
-    fn clear(&mut self) {
-        self.closed.clear();
-        self.heap.clear();
-        self.open.clear();
-    }
+impl<F, Pos, G, M> AStar<F, Pos, G, M> {
     fn path(&mut self, end_node: Node<F, Pos, AStarT<F, Pos>>) -> Vec<Pos>
     where
         Pos: Clone,
@@ -72,22 +61,26 @@ impl<F, Pos> AStar<F, Pos> {
     }
 }
 
-impl<F, Pos> Pathfinder for AStar<F, Pos>
+impl<F, Pos, G, M> PathfinderGen for AStar<F, Pos, G, M>
 where
     Pos: Hash + Eq + Clone + Copy,
     F: core::ops::Add<F, Output = F> + core::ops::Sub<F, Output = F> + Ord + Default + Clone,
+    G: Goal<F, Pos>,
+    M: Movements<F, Pos>,
 {
     type F = F;
     type Pos = Pos;
+    type Movements = M;
+    type Goal = G;
 
-    fn compute(
-        &mut self,
+    fn new(
+        size: usize,
+        max_cost: Self::F,
         start: Self::Pos,
-        goal: impl Goal<F, Pos>,
-        movements: impl Movements<F, Pos>,
-    ) -> Option<Vec<Self::Pos>> {
-        self.clear();
-
+        goal: Self::Goal,
+        movements: Self::Movements,
+    ) -> Self {
+        let mut heap = BinaryHeap::new();
         let h = goal.heuristic(&start);
         let start_node = Node {
             f: h.clone(),
@@ -97,32 +90,66 @@ where
                 parent: None,
             },
         };
-        self.heap.push(start_node.clone());
+        heap.push(start_node.clone());
+        Self {
+            max_cost,
+            movements,
+            start,
+            goal,
+            heap,
+            best_node: start_node,
+            closed: Default::default(),
+            open: Default::default(),
+            refpool: refpool::Pool::new(size),
+        }
+    }
 
-        let max_cost: F = F::default();
-        let mut best_node = start_node;
+    #[inline]
+    fn reset(&mut self) {
+        self.closed.clear();
+        self.heap.clear();
+        self.open.clear();
+        let h = self.goal.heuristic(&self.start);
+        let start_node = Node {
+            f: h,
+            pos: self.start,
+            t: AStarT {
+                g: F::default(),
+                parent: None,
+            },
+        };
+        self.heap.push(start_node.clone());
+        self.best_node = start_node;
+    }
+
+    fn compute(
+        &mut self,
+    ) -> PathResult<Vec<Self::Pos>> {
 
         while let Some(node) = self.heap.pop() {
-            // println!("{:?}", node);
-            // println!("{}", self.refpool.get_pool_size());
-            if goal.is_reached(&node.pos) {
-                let res = self.path(node);
-                // self.clear();
-                return Some(res);
+            if self.goal.is_reached(&node.pos) {
+                self.reset();
+                return PathResult::Complete(self.path(node));
             }
+
 
             self.open.remove(&node.pos);
             self.closed.insert(node.pos);
             // self.visited_chunks.insert(node.pos.into());
 
             let parent = refpool::PoolRef::new(&self.refpool, NodeLeaf(node.pos, node.t.parent));
-            let neighbors = movements.get_neighbors(node.pos);
+            let neighbors = self.movements.get_neighbors(node.pos);
             for (neighbor_pos, cost) in neighbors {
                 if self.closed.contains(&neighbor_pos) {
                     continue;
                 }
 
                 let this_g = node.t.g.clone() + cost;
+
+                let heuristic = self.goal.heuristic(&neighbor_pos);
+                if self.max_cost > F::default() && this_g.clone() + heuristic.clone() > self.max_cost {
+                    continue;
+                }
 
                 match self.open.entry(neighbor_pos) {
                     Occupied(mut entry) => {
@@ -131,21 +158,14 @@ where
                         }
                         let node = entry.get_mut();
                         let (f, t) = node;
-                        *f = f.clone() + this_g.clone() - t.g.clone();
+                        *f = this_g.clone() + heuristic.clone();
                         t.g = this_g;
                         t.parent = Some(parent.clone());
-                        if goal.heuristic(&neighbor_pos)
-                            < best_node.f.clone() - best_node.t.g.clone()
-                        {
-                            best_node = (neighbor_pos, (f.clone(), t.clone())).into();
+                        if heuristic < self.best_node.f.clone() - self.best_node.t.g.clone() {
+                            self.best_node = (neighbor_pos, (f.clone(), t.clone())).into();
                         }
                     }
                     Vacant(entry) => {
-                        let heuristic = goal.heuristic(&neighbor_pos);
-                        if max_cost > F::default() && this_g.clone() + heuristic.clone() > max_cost
-                        {
-                            continue;
-                        }
                         let node = entry.insert((
                             this_g.clone() + heuristic.clone(),
                             AStarT {
@@ -154,14 +174,14 @@ where
                             },
                         ));
                         let neighbor = (neighbor_pos, node.clone()).into();
-                        if heuristic < best_node.f.clone() - best_node.t.g.clone() {
-                            best_node = Node::clone(&neighbor);
+                        if heuristic < self.best_node.f.clone() - self.best_node.t.g.clone() {
+                            self.best_node = Node::clone(&neighbor);
                         }
                         self.heap.push(neighbor);
                     }
                 };
             }
         }
-        None
+        return PathResult::NoPath(self.path(self.best_node.clone()));
     }
 }

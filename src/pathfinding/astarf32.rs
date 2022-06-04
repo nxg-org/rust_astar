@@ -79,6 +79,7 @@ where
     type F = OrderedFloat<f32>;
     type Pos = Pos;
 
+
     fn compute(
         &mut self,
         start: Self::Pos,
