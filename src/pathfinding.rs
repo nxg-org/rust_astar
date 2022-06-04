@@ -1,4 +1,9 @@
+// pub mod astari32;
+pub mod astarf32;
+pub mod astarfixed;
 pub mod astar;
+pub mod astarthin;
+pub mod astarheuristiclater;
 
 /// Represents a node in the pathfinding algorithms
 ///

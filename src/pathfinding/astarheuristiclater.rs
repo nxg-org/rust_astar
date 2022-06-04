@@ -7,9 +7,16 @@ use super::{Goal, Movements, Node, Pathfinder};
 #[derive(Clone, Debug)]
 pub struct AStarT<F, Pos> {
     g: F,
-    h: F,
     parent: Option<refpool::PoolRef<NodeLeaf<Pos>>>,
 }
+
+// impl<Pos> Debug for AStarT<Pos> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("AStarT").field("g", &self.g).field("h", &self.h)
+//         // .field("parent", &self.parent)
+//         .finish()
+//     }
+// }
 
 #[derive(Clone, Debug)]
 struct NodeLeaf<Pos>(Pos, Option<NodeRef<Pos>>);
@@ -68,7 +75,7 @@ impl<F, Pos> AStar<F, Pos> {
 impl<F, Pos> Pathfinder for AStar<F, Pos>
 where
     Pos: Hash + Eq + Clone + Copy,
-    F: core::ops::Add<F, Output = F> + Ord + Default + Clone,
+    F: core::ops::Add<F, Output = F> + core::ops::Sub<F, Output = F> + Ord + Default + Clone,
 {
     type F = F;
     type Pos = Pos;
@@ -87,7 +94,6 @@ where
             pos: start,
             t: AStarT {
                 g: F::default(),
-                h,
                 parent: None,
             },
         };
@@ -118,11 +124,6 @@ where
 
                 let this_g = node.t.g.clone() + cost;
 
-                let heuristic = goal.heuristic(&neighbor_pos);
-                if max_cost > F::default() && this_g.clone() + heuristic.clone() > max_cost {
-                    continue;
-                }
-
                 match self.open.entry(neighbor_pos) {
                     Occupied(mut entry) => {
                         if entry.get().1.g < this_g {
@@ -130,25 +131,30 @@ where
                         }
                         let node = entry.get_mut();
                         let (f, t) = node;
-                        *f = this_g.clone() + heuristic.clone();
+                        *f = f.clone() + this_g.clone() - t.g.clone();
                         t.g = this_g;
-                        t.h = heuristic.clone();
                         t.parent = Some(parent.clone());
-                        if heuristic < best_node.t.h {
+                        if goal.heuristic(&neighbor_pos)
+                            < best_node.f.clone() - best_node.t.g.clone()
+                        {
                             best_node = (neighbor_pos, (f.clone(), t.clone())).into();
                         }
                     }
                     Vacant(entry) => {
+                        let heuristic = goal.heuristic(&neighbor_pos);
+                        if max_cost > F::default() && this_g.clone() + heuristic.clone() > max_cost
+                        {
+                            continue;
+                        }
                         let node = entry.insert((
                             this_g.clone() + heuristic.clone(),
                             AStarT {
                                 g: this_g,
-                                h: heuristic,
                                 parent: Some(parent.clone()),
                             },
                         ));
                         let neighbor = (neighbor_pos, node.clone()).into();
-                        if node.1.h < best_node.t.h {
+                        if heuristic < best_node.f.clone() - best_node.t.g.clone() {
                             best_node = Node::clone(&neighbor);
                         }
                         self.heap.push(neighbor);

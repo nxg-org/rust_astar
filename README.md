@@ -5,6 +5,6 @@ We're messing around with pathfinding implementations (which will eventually be 
 We're rather dumb right now, however, so don't expect anything working for the next few days.
 
 ### Checklist:
-- Generic PathSolver layout (mostly done)
-- AStar implementation (untested, but should work, might have memory leaks not sure yet)
+- Generic PathSolver layout (generic to the max!)
+- AStar implementation (untested, but we don't make mistakes)
 - Proper implementation (world environment and what-not) [not done]
