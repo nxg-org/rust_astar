@@ -2,35 +2,41 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::{fmt::Debug, hash::Hash};
 
-use ordered_float::OrderedFloat;
-
 use super::{Goal, Movements, Node, Pathfinder};
 
 #[derive(Clone, Debug)]
-pub struct AStarT<Pos> {
-    g: OrderedFloat<f32>,
-    h: OrderedFloat<f32>,
+pub struct AStarT<F, Pos> {
+    g: F,
     parent: Option<refpool::PoolRef<NodeLeaf<Pos>>>,
 }
 
-impl<Pos> PartialEq for AStarT<Pos> {
+impl<F, Pos> PartialEq for AStarT<F, Pos>
+where
+    F: PartialEq,
+{
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.g == other.g && self.h == other.h
+        self.g == other.g
     }
 }
-impl<Pos> Eq for AStarT<Pos> {}
-impl<Pos> PartialOrd for AStarT<Pos> {
+impl<F, Pos> Eq for AStarT<F, Pos> where F: PartialEq {}
+impl<F, Pos> PartialOrd for AStarT<F, Pos>
+where
+    F: Ord,
+{
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        match self.g.partial_cmp(&other.g) {
-            Some(core::cmp::Ordering::Equal) => {}
-            ord => return ord,
-        }
-        self.h.partial_cmp(&other.h)
+        other.g.partial_cmp(&self.g)
     }
 }
-impl<Pos> Ord for AStarT<Pos> {
+impl<F, Pos> Ord for AStarT<F, Pos>
+where
+    F: Ord,
+{
+    #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.g.cmp(&other.g)
+        println!("got called");
+        other.g.cmp(&self.g)
     }
 }
 
@@ -49,6 +55,7 @@ impl<Pos> NodeLeaf<Pos>
 where
     Pos: Clone,
 {
+    #[inline]
     fn into_vec(&self, v: &mut Vec<Pos>) {
         let mut r = self.1.as_ref();
         v.push(self.0.clone());
@@ -59,15 +66,29 @@ where
     }
 }
 
-pub struct AStar<Pos> {
+pub struct AStar<F, Pos> {
     closed: HashSet<Pos>,
-    heap: BinaryHeap<Node<OrderedFloat<f32>, Pos, AStarT<Pos>>>,
-    open: HashMap<Pos, (OrderedFloat<f32>, AStarT<Pos>)>,
+    heap: BinaryHeap<Node<F, Pos, AStarT<F, Pos>>>,
+    open: HashMap<Pos, (F, AStarT<F, Pos>)>,
     refpool: refpool::Pool<NodeLeaf<Pos>>,
 }
+impl<F, Pos> AStar<F, Pos> {
+    pub fn dbg(&self) {
+        dbg!((
+            self.refpool.get_max_size() - self.refpool.get_pool_size(),
+            self.open.len(),
+            self.closed.len(),
+            self.heap.len(),
+        ));
+    }
+}
 
-impl<Pos> AStar<Pos> {
-    pub fn with_refpool_size(size: usize) -> Self {
+impl<F, Pos> AStar<F, Pos> {
+    #[inline]
+    pub fn with_refpool_size(size: usize) -> Self
+    where
+        F: Ord,
+    {
         Self {
             closed: Default::default(),
             heap: Default::default(),
@@ -75,12 +96,14 @@ impl<Pos> AStar<Pos> {
             refpool: refpool::Pool::new(size),
         }
     }
+    #[inline]
     fn clear(&mut self) {
         self.closed.clear();
         self.heap.clear();
         self.open.clear();
     }
-    fn path(&mut self, end_node: Node<OrderedFloat<f32>, Pos, AStarT<Pos>>) -> Vec<Pos>
+    #[inline]
+    fn path(&mut self, end_node: Node<F, Pos, AStarT<F, Pos>>) -> Vec<Pos>
     where
         Pos: Clone,
     {
@@ -93,34 +116,34 @@ impl<Pos> AStar<Pos> {
     }
 }
 
-impl<Pos> Pathfinder for AStar<Pos>
+impl<F, Pos> Pathfinder for AStar<F, Pos>
 where
     Pos: Hash + Eq + Clone + Copy,
+    F: core::ops::Add<F, Output = F> + core::ops::Sub<F, Output = F> + Ord + Default + Clone,
 {
-    type F = OrderedFloat<f32>;
+    type F = F;
     type Pos = Pos;
 
     fn compute(
         &mut self,
         start: Self::Pos,
-        goal: impl Goal<OrderedFloat<f32>, Pos>,
-        movements: impl Movements<OrderedFloat<f32>, Pos>,
+        goal: impl Goal<F, Pos>,
+        movements: impl Movements<F, Pos>,
     ) -> Option<Vec<Self::Pos>> {
         self.clear();
 
         let h = goal.heuristic(&start);
         let start_node = Node {
-            f: h,
+            f: h.clone(),
             pos: start,
             t: AStarT {
-                g: 0.0.into(),
-                h,
+                g: F::default(),
                 parent: None,
             },
         };
         self.heap.push(start_node.clone());
 
-        let max_cost: OrderedFloat<f32> = 0.0.into();
+        let max_cost: F = F::default();
         let mut best_node = start_node;
 
         while let Some(node) = self.heap.pop() {
@@ -143,10 +166,10 @@ where
                     continue;
                 }
 
-                let this_g = node.t.g + cost;
+                let this_g = node.t.g.clone() + cost;
 
                 let heuristic = goal.heuristic(&neighbor_pos);
-                if max_cost > 0.0.into() && this_g + heuristic > max_cost {
+                if max_cost > F::default() && this_g.clone() + heuristic.clone() > max_cost {
                     continue;
                 }
 
@@ -157,25 +180,23 @@ where
                         }
                         let node = entry.get_mut();
                         let (f, t) = node;
-                        *f = this_g + heuristic;
+                        *f = this_g.clone() + heuristic.clone();
                         t.g = this_g;
-                        t.h = heuristic;
                         t.parent = Some(parent.clone());
-                        if heuristic < best_node.t.h {
-                            best_node = (neighbor_pos, (*f, t.clone())).into();
+                        if heuristic < best_node.f.clone() - best_node.t.g.clone() {
+                            best_node = (neighbor_pos, (f.clone(), t.clone())).into();
                         }
                     }
                     Vacant(entry) => {
                         let node = entry.insert((
-                            this_g + heuristic,
+                            this_g.clone() + heuristic.clone(),
                             AStarT {
                                 g: this_g,
-                                h: heuristic,
                                 parent: Some(parent.clone()),
                             },
                         ));
                         let neighbor = (neighbor_pos, node.clone()).into();
-                        if heuristic < best_node.t.h {
+                        if heuristic < best_node.f.clone() - best_node.t.g.clone() {
                             best_node = Node::clone(&neighbor);
                         }
                         self.heap.push(neighbor);

@@ -2,12 +2,38 @@ use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::{fmt::Debug, hash::Hash};
 
-use super::{Goal, Movements, Node, PathResult, Pathfinder, PathfinderGen};
+use super::{Goal, Movements, Node, PathResult, PathfinderGen};
 
 #[derive(Clone, Debug)]
 pub struct AStarT<F, Pos> {
     g: F,
     parent: Option<refpool::PoolRef<NodeLeaf<Pos>>>,
+}
+
+impl<F, Pos> PartialEq for AStarT<F, Pos>
+where
+    F: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.g == other.g
+    }
+}
+impl<F, Pos> Eq for AStarT<F, Pos> where F: PartialEq {}
+impl<F, Pos> PartialOrd for AStarT<F, Pos>
+where
+    F: Ord,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.g.partial_cmp(&other.g)
+    }
+}
+impl<F, Pos> Ord for AStarT<F, Pos>
+where
+    F: Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.g.cmp(&other.g)
+    }
 }
 
 // impl<Pos> Debug for AStarT<Pos> {
@@ -124,16 +150,12 @@ where
         self.best_node = start_node;
     }
 
-    fn compute(
-        &mut self,
-    ) -> PathResult<Vec<Self::Pos>> {
-
+    fn compute(&mut self) -> PathResult<Vec<Self::Pos>> {
         while let Some(node) = self.heap.pop() {
             if self.goal.is_reached(&node.pos) {
                 self.reset();
                 return PathResult::Complete(self.path(node));
             }
-
 
             self.open.remove(&node.pos);
             self.closed.insert(node.pos);
@@ -149,7 +171,9 @@ where
                 let this_g = node.t.g.clone() + cost;
 
                 let heuristic = self.goal.heuristic(&neighbor_pos);
-                if self.max_cost > F::default() && this_g.clone() + heuristic.clone() > self.max_cost {
+                if self.max_cost > F::default()
+                    && this_g.clone() + heuristic.clone() > self.max_cost
+                {
                     continue;
                 }
 

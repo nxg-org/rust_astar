@@ -120,7 +120,7 @@ mod test {
 
     #[bench]
     fn f32_thin(b: &mut Bencher) {
-        use pathfinding::astarthin::AStar;
+        use pathfinding::astar::AStar;
         let mut astar: AStar<OrderedFloat<f32>, Pos> = AStar::with_refpool_size(REFPOOL_SIZE);
 
         b.iter(|| {

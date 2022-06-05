@@ -7,9 +7,43 @@ use super::{Goal, Movements, Node, Pathfinder};
 #[derive(Clone, Debug)]
 pub struct AStarT<F, Pos> {
     g: F,
-    h: F,
     parent: Option<refpool::PoolRef<NodeLeaf<Pos>>>,
 }
+
+impl<F, Pos> PartialEq for AStarT<F, Pos>
+where
+    F: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.g == other.g
+    }
+}
+impl<F, Pos> Eq for AStarT<F, Pos> where F: PartialEq {}
+impl<F, Pos> PartialOrd for AStarT<F, Pos>
+where
+    F: Ord,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.g.partial_cmp(&other.g)
+    }
+}
+impl<F, Pos> Ord for AStarT<F, Pos>
+where
+    F: Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        println!("got called");
+        self.g.cmp(&other.g)
+    }
+}
+
+// impl<Pos> Debug for AStarT<Pos> {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         f.debug_struct("AStarT").field("g", &self.g).field("h", &self.h)
+//         // .field("parent", &self.parent)
+//         .finish()
+//     }
+// }
 
 #[derive(Clone, Debug)]
 struct NodeLeaf<Pos>(Pos, Option<NodeRef<Pos>>);
@@ -34,8 +68,18 @@ pub struct AStar<F, Pos> {
     open: HashMap<Pos, (F, AStarT<F, Pos>)>,
     refpool: refpool::Pool<NodeLeaf<Pos>>,
 }
-
 impl<F, Pos> AStar<F, Pos> {
+    pub fn dbg(&self) {
+        dbg!((
+            self.refpool.get_max_size() - self.refpool.get_pool_size(),
+            self.open.len(),
+            self.closed.len(),
+            self.heap.len(),
+        ));
+    }
+}
+impl<F, Pos> AStar<F, Pos>
+{
     pub fn with_refpool_size(size: usize) -> Self
     where
         F: Ord,
@@ -68,11 +112,10 @@ impl<F, Pos> AStar<F, Pos> {
 impl<F, Pos> Pathfinder for AStar<F, Pos>
 where
     Pos: Hash + Eq + Clone + Copy,
-    F: core::ops::Add<F, Output = F> + Ord + Default + Clone,
+    F: core::ops::Add<F, Output = F> + core::ops::Sub<F, Output = F> + Ord + Default + Clone,
 {
     type F = F;
     type Pos = Pos;
-
 
     fn compute(
         &mut self,
@@ -88,7 +131,6 @@ where
             pos: start,
             t: AStarT {
                 g: F::default(),
-                h,
                 parent: None,
             },
         };
@@ -133,9 +175,8 @@ where
                         let (f, t) = node;
                         *f = this_g.clone() + heuristic.clone();
                         t.g = this_g;
-                        t.h = heuristic.clone();
                         t.parent = Some(parent.clone());
-                        if heuristic < best_node.t.h {
+                        if heuristic < best_node.f.clone() - best_node.t.g.clone() {
                             best_node = (neighbor_pos, (f.clone(), t.clone())).into();
                         }
                     }
@@ -144,12 +185,11 @@ where
                             this_g.clone() + heuristic.clone(),
                             AStarT {
                                 g: this_g,
-                                h: heuristic,
                                 parent: Some(parent.clone()),
                             },
                         ));
                         let neighbor = (neighbor_pos, node.clone()).into();
-                        if node.1.h < best_node.t.h {
+                        if heuristic < best_node.f.clone() - best_node.t.g.clone() {
                             best_node = Node::clone(&neighbor);
                         }
                         self.heap.push(neighbor);

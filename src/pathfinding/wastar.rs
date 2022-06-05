@@ -1,3 +1,8 @@
+/*
+g(p) < h(p)
+     ? g(p) + h(p)
+     : (g(p) + (2*w - 1) * h(p)) / w */
+
 use std::collections::hash_map::Entry::{Occupied, Vacant};
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::{fmt::Debug, hash::Hash};
@@ -8,6 +13,33 @@ use super::{Goal, Movements, Node, Pathfinder};
 pub struct AStarT<F, Pos> {
     g: F,
     parent: Option<refpool::PoolRef<NodeLeaf<Pos>>>,
+}
+
+impl<F, Pos> PartialEq for AStarT<F, Pos>
+where
+    F: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.g == other.g
+    }
+}
+impl<F, Pos> Eq for AStarT<F, Pos> where F: PartialEq {}
+impl<F, Pos> PartialOrd for AStarT<F, Pos>
+where
+    F: Ord,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.g.partial_cmp(&other.g)
+    }
+}
+impl<F, Pos> Ord for AStarT<F, Pos>
+where
+    F: Ord,
+{
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        println!("got called");
+        self.g.cmp(&other.g)
+    }
 }
 
 // impl<Pos> Debug for AStarT<Pos> {
@@ -40,10 +72,20 @@ pub struct AStar<F, Pos> {
     heap: BinaryHeap<Node<F, Pos, AStarT<F, Pos>>>,
     open: HashMap<Pos, (F, AStarT<F, Pos>)>,
     refpool: refpool::Pool<NodeLeaf<Pos>>,
+    weights: fn(F, F) -> F,
 }
-
 impl<F, Pos> AStar<F, Pos> {
-    pub fn with_refpool_size(size: usize) -> Self
+    pub fn dbg(&self) {
+        dbg!((
+            self.refpool.get_max_size() - self.refpool.get_pool_size(),
+            self.open.len(),
+            self.closed.len(),
+            self.heap.len(),
+        ));
+    }
+}
+impl<F, Pos> AStar<F, Pos> {
+    pub fn with_refpool_size(size: usize, w: fn(F, F) -> F) -> Self
     where
         F: Ord,
     {
@@ -52,6 +94,7 @@ impl<F, Pos> AStar<F, Pos> {
             heap: Default::default(),
             open: Default::default(),
             refpool: refpool::Pool::new(size),
+            weights: w,
         }
     }
     fn clear(&mut self) {
@@ -79,9 +122,6 @@ where
 {
     type F = F;
     type Pos = Pos;
-
-
-
 
     fn compute(
         &mut self,
@@ -126,9 +166,9 @@ where
                 }
 
                 let this_g = node.t.g.clone() + cost;
-
                 let heuristic = goal.heuristic(&neighbor_pos);
-                if max_cost > F::default() && this_g.clone() + heuristic.clone() > max_cost {
+                let this_f = (self.weights)(this_g.clone(), heuristic.clone());
+                if max_cost > F::default() && this_f.clone() > max_cost {
                     continue;
                 }
 
@@ -139,23 +179,23 @@ where
                         }
                         let node = entry.get_mut();
                         let (f, t) = node;
-                        *f = this_g.clone() + heuristic.clone();
-                        t.g = this_g;
+                        *f = this_f.clone();
+                        t.g = this_g.clone();
                         t.parent = Some(parent.clone());
-                        if heuristic < best_node.f.clone() - best_node.t.g.clone() {
+                        if this_f - this_g < best_node.f.clone() - best_node.t.g.clone() {
                             best_node = (neighbor_pos, (f.clone(), t.clone())).into();
                         }
                     }
                     Vacant(entry) => {
                         let node = entry.insert((
-                            this_g.clone() + heuristic.clone(),
+                            this_f.clone(),
                             AStarT {
-                                g: this_g,
+                                g: this_g.clone(),
                                 parent: Some(parent.clone()),
                             },
                         ));
                         let neighbor = (neighbor_pos, node.clone()).into();
-                        if heuristic < best_node.f.clone() - best_node.t.g.clone() {
+                        if this_f - this_g < best_node.f.clone() - best_node.t.g.clone() {
                             best_node = Node::clone(&neighbor);
                         }
                         self.heap.push(neighbor);

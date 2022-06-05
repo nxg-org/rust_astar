@@ -1,8 +1,15 @@
+use refpool::PoolRef;
+
 // pub mod astari32;
+pub mod astar_fat;
 pub mod astarf32;
 pub mod astar;
-pub mod astarthin;
 pub mod gen_astar;
+pub mod astar_rev;
+pub mod astar_slaballoc;
+pub mod astar_arena;
+pub mod wastar;
+pub mod wastar_arena;
 
 /// Represents a node in the pathfinding algorithms
 ///
@@ -23,6 +30,7 @@ impl<F, Pos, T> PartialEq for Node<F, Pos, T>
 where
     F: PartialEq,
 {
+    #[inline]
     fn eq(&self, other: &Self) -> bool {
         self.f == other.f
     }
@@ -32,16 +40,24 @@ impl<F, Pos, T> PartialOrd for Node<F, Pos, T>
 where
     F: PartialOrd,
 {
+    #[inline]
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         other.f.partial_cmp(&self.f)
     }
 }
 impl<F, Pos, T> Ord for Node<F, Pos, T>
 where
-    F: Ord
+    F: Ord,
+    T: Ord,
 {
+    #[inline]
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        other.f.cmp(&self.f)
+        use std::cmp::Ordering::Equal;
+        // other.f.cmp(&self.f)
+        match other.f.cmp(&self.f) {
+            Equal => self.t.cmp(&other.t),
+            other => other,
+        }
     }
 }
 
@@ -74,7 +90,6 @@ pub trait Pathfinder {
         movements: impl Movements<Self::F, Self::Pos>,
     ) -> Option<Vec<Self::Pos>>;
 }
-
 
 pub trait PathfinderGen {
     type F;
